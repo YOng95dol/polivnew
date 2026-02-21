@@ -22,11 +22,12 @@ if not all([TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, GEMINI_API_KEY]):
 
 SENT_URLS_FILE = 'sent_urls.json'
 
+# [핵심 변경] 사용자가 새롭게 지정한 4개의 언론사 RSS 주소록으로 교체
 RSS_FEEDS = {
-    '한겨레 정치': 'https://www.hani.co.kr/rss/politics/',
-    '경향신문 정치': 'https://www.khan.co.kr/rss/rssdata/politic.xml',
-    'MBC 뉴스': 'https://imnews.imbc.com/rss/news.xml',
-    '뉴스타파': 'https://newstapa.org/feed'
+    '경향신문': 'https://www.khan.co.kr/rss/rssdata/total_news.xml',
+    'JTBC': 'https://news-ex.jtbc.co.kr/v1/get/rss/section/politics',
+    '한겨레': 'https://www.hani.co.kr/rss/',
+    '노컷뉴스': 'https://rss.nocutnews.co.kr/category/politics.xml'
 }
 
 BROWSER_HEADERS = {
@@ -71,6 +72,8 @@ def scrape_article_text(url):
     try:
         response = requests.get(url, headers=BROWSER_HEADERS, timeout=10)
         soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # 대부분의 언론사 기사 본문은 <p> 태그 안에 작성되므로 범용적으로 추출 가능
         paragraphs = soup.find_all('p')
         text = ' '.join([p.get_text().strip() for p in paragraphs if len(p.get_text().strip()) > 20])
         return text[:3000] 
@@ -84,7 +87,7 @@ def summarize_text(text):
         return "본문 추출에 실패하여 요약할 수 없습니다."
     try:
         client = genai.Client(api_key=GEMINI_API_KEY)
-        prompt = f"다음은 한국 정치 뉴스 기사 본문입니다. 핵심 내용을 1~3줄의 불릿 포인트(-)로 요약하세요.\n본문: {text}"
+        prompt = f"다음은 한국 뉴스 기사 본문입니다. 핵심 내용을 1~3줄의 불릿 포인트(-)로 요약하세요.\n본문: {text}"
         
         response = client.models.generate_content(
             model='gemini-2.5-flash',
@@ -113,15 +116,13 @@ def summarize_text(text):
         return response.text.strip()
     except Exception as e:
         print(f"⚠️ Gemini API error 상세: {e}")
-        return "🤖 AI 안전 필터가 작동하여 요약이 차단된 기사입니다. (정치적 민감 단어 과다 포함)\n아래 기사 원문을 직접 확인해주세요."
+        return "🤖 AI 안전 필터가 작동하여 요약이 차단된 기사입니다.\n아래 기사 원문을 직접 확인해주세요."
 
-# --- [4. 텔레그램 전송 (언론사 정보 제거 반영)] ---
-# 함수 파라미터에서 source를 빼고, 텔레그램 전송 텍스트에서도 제외했습니다.
+# --- [4. 텔레그램 전송 (깔끔한 UI 유지)] ---
 def send_telegram_message(title, link, summary):
     safe_title = html.escape(title)
     safe_summary = html.escape(summary)
     
-    # "한겨레 정치 | " 같은 문구가 들어가는 부분을 삭제하여 오직 제목만 굵게(<b>) 나오게 수정
     text = f"<b>{safe_title}</b>\n\n📰\n{safe_summary}\n\n🔗 <a href='{link}'>기사 원문 보기</a>"
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
@@ -142,7 +143,7 @@ def send_telegram_message(title, link, summary):
 
 # --- [5. 메인 로직 실행] ---
 def main():
-    print("🚀 봇 실행을 시작합니다... (1언론사 1기사 할당 & AI 필터 해제 모드)")
+    print("🚀 봇 실행을 시작합니다... (새로운 4개 언론사 적용 완료)")
     sent_urls = load_sent_urls()
     
     news_entries = get_one_news_per_source(sent_urls)
@@ -156,13 +157,11 @@ def main():
     new_sent_urls = list(sent_urls)
 
     for entry in news_entries:
-        # GitHub 터미널 로그에는 여전히 언론사 이름이 찍히도록 하여 관리자가 확인하기 쉽게 유지
         print(f"\n⏳ 처리 중: [{entry.source_name}] {entry.title}")
         
         article_text = scrape_article_text(entry.link)
         summary = summarize_text(article_text)
         
-        # 텔레그램 전송 함수 호출 시 더 이상 언론사 이름(entry.source_name)을 넘기지 않음
         is_success = send_telegram_message(entry.title, entry.link, summary)
         
         if is_success:
