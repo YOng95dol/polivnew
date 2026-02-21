@@ -2,12 +2,11 @@ name: Hourly Political News Bot
 
 on:
   schedule:
-    # 매 시간 0분에 실행 (UTC 기준 0 * * * * 은 한국 시간으로 매시간 정각과 동일)
     - cron: '0 * * * *'
-  workflow_dispatch: # GitHub 페이지에서 수동 버튼으로 실행할 수 있게 함
+  workflow_dispatch:
 
 permissions:
-  contents: write # 봇이 sent_urls.json을 업데이트(커밋)할 수 있도록 권한 부여
+  contents: write
 
 jobs:
   run-bot:
@@ -17,15 +16,15 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    - name: Set up Python
+    - name: Set up Python (버전 3.11로 업그레이드)
       uses: actions/setup-python@v5
       with:
-        python-version: '3.10'
+        python-version: '3.11'
 
-    - name: Install Dependencies
+    - name: Install Dependencies (최신 구글 라이브러리로 변경)
       run: |
         python -m pip install --upgrade pip
-        pip install requests beautifulsoup4 feedparser google-generativeai
+        pip install requests beautifulsoup4 feedparser google-genai
 
     - name: Run Main Script
       env:
@@ -34,10 +33,9 @@ jobs:
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       run: python main.py
 
-    - name: Commit and Push sent_urls.json (상태 저장)
+    - name: Commit and Push sent_urls.json
       run: |
         git config --global user.name "GitHub Action Bot"
         git config --global user.email "action@github.com"
-        # 파일이 변경되었을 때만 커밋
         git add sent_urls.json
         git diff --quiet && git diff --staged --quiet || (git commit -m "Update sent urls [skip ci]" && git push)
