@@ -43,27 +43,24 @@ def save_sent_urls(urls):
     with open(SENT_URLS_FILE, 'w', encoding='utf-8') as f:
         json.dump(urls[-100:], f, ensure_ascii=False, indent=2)
 
-# --- [2. 정보 수집 (각 언론사별 1개씩 공평 분배 아키텍처)] ---
+# --- [2. 정보 수집 (각 언론사별 1개씩 공평 분배)] ---
 def get_one_news_per_source(sent_urls):
     selected_entries = []
     
-    # 4개 언론사를 하나씩 순회합니다.
     for source, url in RSS_FEEDS.items():
         try:
             response = requests.get(url, headers=BROWSER_HEADERS, timeout=10)
             feed = feedparser.parse(response.content)
             
-            # 해당 언론사의 기사들을 최신순으로 정렬
             def get_published_time(entry):
                 return entry.get('published_parsed', time.localtime(0))
             sorted_entries = sorted(feed.entries, key=get_published_time, reverse=True)
             
-            # 정렬된 기사 중 "아직 안 보낸" 가장 최신 기사 딱 '1개'만 찾고 빠져나옵니다.
             for entry in sorted_entries:
                 if entry.link not in sent_urls:
                     entry['source_name'] = source
                     selected_entries.append(entry)
-                    break # 1개를 찾았으므로 이 언론사 검색은 종료하고 다음 언론사로 넘어감
+                    break 
                     
         except Exception as e:
             print(f"⚠️ {source} 파싱 에러: {e}")
@@ -81,7 +78,7 @@ def scrape_article_text(url):
         print(f"⚠️ 본문 추출 에러: {e}")
         return ""
 
-# --- [3. AI 요약 (안전 필터 해제 아키텍처 적용)] ---
+# --- [3. AI 요약 (안전 필터 해제 모드)] ---
 def summarize_text(text):
     if not text or len(text) < 100:
         return "본문 추출에 실패하여 요약할 수 없습니다."
@@ -89,9 +86,8 @@ def summarize_text(text):
         client = genai.Client(api_key=GEMINI_API_KEY)
         prompt = f"다음은 한국 정치 뉴스 기사 본문입니다. 핵심 내용을 1~3줄의 불릿 포인트(-)로 요약하세요.\n본문: {text}"
         
-        # [핵심] 정치 뉴스의 격한 단어 때문에 AI가 거부하지 않도록 안전 필터링을 완전히 끕니다.
         response = client.models.generate_content(
-            model='gemini-2.5-flash', # 최신 빠르고 안정적인 모델
+            model='gemini-2.5-flash',
             contents=prompt,
             config=types.GenerateContentConfig(
                 safety_settings=[
@@ -116,16 +112,17 @@ def summarize_text(text):
         )
         return response.text.strip()
     except Exception as e:
-        # 안전 필터마저 뚫지 못한 극단적 예외 상황 처리 (텔레그램 전송 자체는 성공하게 만듦)
         print(f"⚠️ Gemini API error 상세: {e}")
         return "🤖 AI 안전 필터가 작동하여 요약이 차단된 기사입니다. (정치적 민감 단어 과다 포함)\n아래 기사 원문을 직접 확인해주세요."
 
-# --- [4. 텔레그램 전송] ---
-def send_telegram_message(source, title, link, summary):
+# --- [4. 텔레그램 전송 (언론사 정보 제거 반영)] ---
+# 함수 파라미터에서 source를 빼고, 텔레그램 전송 텍스트에서도 제외했습니다.
+def send_telegram_message(title, link, summary):
     safe_title = html.escape(title)
     safe_summary = html.escape(summary)
     
-    text = f"<b>{source} | {safe_title}</b>\n\n📰\n{safe_summary}\n\n🔗 <a href='{link}'>기사 원문 보기</a>"
+    # "한겨레 정치 | " 같은 문구가 들어가는 부분을 삭제하여 오직 제목만 굵게(<b>) 나오게 수정
+    text = f"<b>{safe_title}</b>\n\n📰\n{safe_summary}\n\n🔗 <a href='{link}'>기사 원문 보기</a>"
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         'chat_id': TELEGRAM_CHAT_ID,
@@ -148,7 +145,6 @@ def main():
     print("🚀 봇 실행을 시작합니다... (1언론사 1기사 할당 & AI 필터 해제 모드)")
     sent_urls = load_sent_urls()
     
-    # [핵심] 4개 언론사에서 각각 1개씩, 최대 4개의 기사만 정확히 뽑아옵니다.
     news_entries = get_one_news_per_source(sent_urls)
     print(f"📡 각 언론사별 최신 기사 총 {len(news_entries)}개를 선정했습니다.")
     
@@ -160,12 +156,14 @@ def main():
     new_sent_urls = list(sent_urls)
 
     for entry in news_entries:
+        # GitHub 터미널 로그에는 여전히 언론사 이름이 찍히도록 하여 관리자가 확인하기 쉽게 유지
         print(f"\n⏳ 처리 중: [{entry.source_name}] {entry.title}")
         
-        article_text = scrape_article_text(link=entry.link)
+        article_text = scrape_article_text(entry.link)
         summary = summarize_text(article_text)
         
-        is_success = send_telegram_message(entry.source_name, entry.title, entry.link, summary)
+        # 텔레그램 전송 함수 호출 시 더 이상 언론사 이름(entry.source_name)을 넘기지 않음
+        is_success = send_telegram_message(entry.title, entry.link, summary)
         
         if is_success:
             new_sent_urls.append(entry.link)
