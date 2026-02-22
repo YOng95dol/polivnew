@@ -2,9 +2,9 @@ name: Hourly Political News Bot
 
 on:
   schedule:
-    # 한국 시간(KST) 오전 5시 ~ 11시 사이의 매 정각에만 실행
-    # (UTC 기준 20시~23시, 0시~2시에 해당)
-    - cron: '0 20,21,22,23,0,1,2 * * *'
+    # 한국 시간(KST) 오전 5시 ~ 밤 12시(자정) 사이의 매 정각(경)에 실행
+    # (UTC 기준 20시~23시, 그리고 0시~15시에 해당)
+    - cron: '0 0-15,20-23 * * *'
   workflow_dispatch:
 
 permissions:
