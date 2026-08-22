@@ -1,9 +1,4 @@
 [
-  "https://news.jtbc.co.kr/article/NB12314303",
-  "https://www.ohmynews.com/NWS_Web/View/at_pg.aspx?CNTN_CD=A0003260669",
-  "https://www.newsis.com/view/NISX20260820_0003756773",
-  "https://www.yonhapnewstv.co.kr/news/MYH20260820230234uy7",
-  "https://www.khan.co.kr/article/202608202135005/?utm_source=khan_rss&utm_medium=rss&utm_campaign=politic_news",
   "https://news.jtbc.co.kr/article/NB12314343",
   "https://www.ohmynews.com/NWS_Web/View/at_pg.aspx?CNTN_CD=A0003260658",
   "https://www.newsis.com/view/NISX20260820_0003756351",
@@ -148,5 +143,10 @@
   "https://news.jtbc.co.kr/article/NB12314555",
   "https://www.ohmynews.com/NWS_Web/View/at_pg.aspx?CNTN_CD=A0003261019",
   "https://www.newsis.com/view/NISX20260822_0003758473",
-  "https://www.yonhapnewstv.co.kr/news/AKR20260822154604ejY"
+  "https://www.yonhapnewstv.co.kr/news/AKR20260822154604ejY",
+  "https://www.khan.co.kr/article/202608221724001/?utm_source=khan_rss&utm_medium=rss&utm_campaign=politic_news",
+  "https://news.jtbc.co.kr/article/NB12314482",
+  "https://www.ohmynews.com/NWS_Web/View/at_pg.aspx?CNTN_CD=A0003260921",
+  "https://www.newsis.com/view/NISX20260822_0003758523",
+  "https://www.yonhapnewstv.co.kr/news/MYH20260822170629Jos"
 ]
